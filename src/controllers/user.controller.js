@@ -14,35 +14,47 @@ const creatuser = async(req,res)=>{
         
         if(userExists){return res.status(400).json({message:'User already exists'}); } 
         
-
         const token = crypto.randomBytes(20).toString('hex');
 
+        // --- DYNAMIC LINK LOGIC ---
+        // This checks if you're on Render or Localhost
+        const domain = process.env.NODE_ENV === 'production' 
+            ? 'https://goalstack-ca01.onrender.com' 
+            : 'http://localhost:3000';
+
+        const verificationUrl = `${domain}/api/users/verify/${token}`;
+        // --------------------------
+
         const user = await User.create({name,email,password,verificationToken:token}); 
+        
         try {
             await sendEmail({
                 email: user.email,
                 subject: 'Verify your email',
-                text: `Please verify your email by clicking on the link: http://localhost:3000/api/users/verify/${token}`
+                // Use the new dynamic verificationUrl here
+                text: `Please verify your email by clicking on the link: ${verificationUrl}`,
+                html: `<h1>Verify Email</h1><p>Please click <a href="${verificationUrl}">here</a> to verify.</p>`
             });
+            
             res.status(201).json({ 
                 message: 'Success! Please check your email to verify your account.',
                 userId: user._id 
             });
         } catch (mailError) {
-            // If email fails, we should probably delete the user so they can try again
             await User.findByIdAndDelete(user._id);
-            return res.status(500).json({ message: 'Error sending email. Try again later.' });
+            // Log the ACTUAL error to Render logs so you can see why Gmail rejected it
+            console.error("Nodemailer Error:", mailError); 
+            return res.status(500).json({ 
+                message: 'Error sending email.', 
+                reason: mailError.message 
+            });
         }
     } catch (error) {
-    // This sends EVERYTHING back to Postman
-    res.status(500).json({
-        success: false,
-        errorName: error.name,        // e.g., "ReferenceError"
-        errorMessage: error.message,  // e.g., "post is not defined"
-        stackTrace: error.stack,      // This shows the exact line number in your file
-        fullError: error              // Some extra details from MongoDB
-    });
-}
+        res.status(500).json({
+            success: false,
+            errorMessage: error.message,
+        });
+    }
 }
 const verifyEmail = async (req, res) => {
     try {
