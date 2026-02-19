@@ -19,7 +19,7 @@ const createtask = async (req, res) => {
             title,
             description,
             status: 'pending',
-            attachments: filePaths // This now works because filePaths is defined above
+            attachment: filePaths // Matches the schema field name
         });
 
         res.status(201).json({ message: 'Task created successfully', taskcreated });
@@ -66,45 +66,45 @@ const getTasks = async (req, res) => {
     }
 };
 
-const updatetasks = async(req,res)=>{
+const updatetasks = async (req, res) => {
     try {
-        const tasks= await Task.findById(req.params.id);
+        const tasks = await Task.findById(req.params.id);
 
-        if(!tasks){
-            return res.status(404).json({message:"task not found"});
+        if (!tasks) {
+            return res.status(404).json({ message: "task not found" });
         }
-        if(tasks.user.toString()!==req.user._id.toString()){
-            return res.status(401).json({message:"Not authorized"});
+        if (tasks.user.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ message: "Not authorized" });
         }
-        const updatedtask = await Task.findByIdAndUpdate(req.params.id,req.body,{new:true});
-        res.status(200).json({message:"task updated successfully",updatedtask});    
-    } catch (error) {       
+        const updatedtask = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.status(200).json({ message: "task updated successfully", updatedtask });
+    } catch (error) {
         res.status(500).json({
             success: false,
             errorName: error.name,        // e.g., "ReferenceError"
             errorMessage: error.message,  // e.g., "post is not defined"            
             stackTrace: error.stack,      // This shows the exact line number in your file
             fullError: error              // Some extra details from MongoDB
-        
-          });
+
+        });
     }
 };
-const deletetasks = async(req,res)=>{
+const deletetasks = async (req, res) => {
     try {
-        const tasks= await Task.findById(req.params.id);                
-        if(!tasks){
-            return res.status(400).json({message:"task not found"});
-        }           
-        if(tasks.user.toString()!==req.user._id.toString()){
-            return res.status(401).json({message:"Not authorized"});
-        }   
+        const tasks = await Task.findById(req.params.id);
+        if (!tasks) {
+            return res.status(400).json({ message: "task not found" });
+        }
+        if (tasks.user.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ message: "Not authorized" });
+        }
         await Task.findByIdAndDelete(req.params.id);
-        res.status(200).json({message:"task deleted successfully"});    
+        res.status(200).json({ message: "task deleted successfully" });
     }
 
-        catch (error) {
+    catch (error) {
         res.status(500).json({
-            success: false,     
+            success: false,
             errorName: error.name,        // e.g., "ReferenceError"
             errorMessage: error.message,  // e.g., "post is not defined"            
             stackTrace: error.stack,      // This shows the exact line number in your file
@@ -114,4 +114,4 @@ const deletetasks = async(req,res)=>{
 };
 
 
-export {createtask,getTasks,updatetasks,deletetasks};
+export { createtask, getTasks, updatetasks, deletetasks };

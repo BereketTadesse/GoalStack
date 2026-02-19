@@ -28,8 +28,7 @@ import mongoose from 'mongoose';
             type: [String],
             default: []
         }
-    }); 
-        
-        {timestamps: true}
+    }, { timestamps: true });
+
 export default mongoose.model('task',taskschema);
     
