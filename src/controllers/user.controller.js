@@ -27,11 +27,10 @@ const creatuser = async(req,res)=>{
 
         const user = await User.create({name,email,password,verificationToken:token}); 
         
-        try {
+       try {
             await sendEmail({
                 email: user.email,
                 subject: 'Verify your email',
-                // Use the new dynamic verificationUrl here
                 text: `Please verify your email by clicking on the link: ${verificationUrl}`,
                 html: `<h1>Verify Email</h1><p>Please click <a href="${verificationUrl}">here</a> to verify.</p>`
             });
@@ -41,12 +40,14 @@ const creatuser = async(req,res)=>{
                 userId: user._id 
             });
         } catch (mailError) {
+            // Delete the user so they can try to register again after the fix
             await User.findByIdAndDelete(user._id);
-            // Log the ACTUAL error to Render logs so you can see why Gmail rejected it
-            console.error("Nodemailer Error:", mailError); 
+
+            // THIS IS THE IMPORTANT PART: Send the error back to Postman
             return res.status(500).json({ 
                 message: 'Error sending email.', 
-                reason: mailError.message 
+                errorDetail: mailError.message, // This will tell us if it's "Invalid Login" or "Timeout"
+                errorStack: mailError.code      // This shows the SMTP error code (like 535)
             });
         }
     } catch (error) {
