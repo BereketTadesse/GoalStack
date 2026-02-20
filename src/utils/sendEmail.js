@@ -1,35 +1,45 @@
-import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
-dotenv.config();
+// utils/sendEmail.js
+import { BrevoClient } from "@getbrevo/brevo";
+import dotenv from "dotenv";
 
-const sendEmail = async (options) => {
+// Ensure dotenv reads from project root even if this file is in /utils
+dotenv.config({ path: process.cwd() + "/.env" });
+
+const apiKey = process.env.BREVO_API_KEY?.trim();
+const senderEmail = process.env.BREVO_SENDER_EMAIL?.trim();
+
+if (!apiKey) throw new Error("Missing BREVO_API_KEY in .env");
+if (!senderEmail) throw new Error("Missing BREVO_SENDER_EMAIL in .env");
+
+const client = new BrevoClient({ apiKey });
+
+const sendEmail = async ({ email, subject, html, text }) => {
   try {
-    const transporter = nodemailer.createTransport({
-      host: 'smtp-relay.brevo.com',
-      port: 587,
-      secure: false, // Use false for STARTTLS (port 587)
-      auth: {
-        // We use .trim() to ensure no accidental spaces break the connection
-        user: process.env.BREVO_SMTP_LOGIN.trim(),
-        pass: process.env.BREVO_SMTP_KEY.trim(),
-      },
-    });
+    if (!email) throw new Error("Missing recipient email");
+    if (!subject) throw new Error("Missing subject");
+    if (!html && !text) throw new Error("Missing email content (html or text)");
 
-    const mailOptions = {
-      // Use the verified email address you set up in Brevo
-      from: `"GoalStack Support" <${process.env.BREVO_SENDER_EMAIL.trim()}>`,
-      to: options.email,
-      subject: options.subject,
-      text: options.text,
-      html: options.html,
+    const payload = {
+      subject,
+      sender: { name: "GoalStack", email: senderEmail },
+      to: [{ email }],
+      ...(html ? { htmlContent: html } : {}),
+      ...(text ? { textContent: text } : {}),
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent successfully. Message ID:', info.messageId);
-    return info;
+    const res = await client.transactionalEmails.sendTransacEmail(payload);
+    console.log("✅ Email sent via Brevo. Response:", res);
+    return res;
   } catch (error) {
-    console.error('❌ Email sending failed:', error.message);
-    throw new Error('Email could not be sent.');
+    const errorMessage =
+      error?.response?.data?.message ||
+      error?.response?.body?.message ||
+      error?.body?.message ||
+      error?.message;
+
+    console.error("--- BREVO API ERROR ---");
+    console.error("Message:", errorMessage);
+    throw new Error(`Email failed: ${errorMessage}`);
   }
 };
 
