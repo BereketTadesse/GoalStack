@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import cors from 'cors';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import connectDB from './src/config/db.js';
@@ -22,6 +23,10 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(cors({      
+    origin: process.env.CORS_ORIGIN || 'http://localhost:8080/',
+    credentials: true,
+}));
 app.use('/uploads', express.static(uploadsDir));
 
 app.get('/health', (req, res) => {
