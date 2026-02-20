@@ -1,9 +1,14 @@
 import User from '../models/user.model.js';
-import multer from 'multer';
 import sendEmail from '../utils/sendEmail.js';
 import crypto from 'crypto';
 
-const getBaseUrl = () => process.env.APP_URL || 'http://localhost:3000';
+const getBaseUrl = (req) => {
+    if (process.env.APP_URL) return process.env.APP_URL;
+
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.headers['x-forwarded-host'] || req.get('host');
+    return `${proto}://${host}`;
+};
 
 const creatuser = async (req, res) => {
     try {
@@ -11,14 +16,16 @@ const creatuser = async (req, res) => {
 
         if (!name || !email || !password) {
             return res.status(400).json({ message: 'All fields are required' });
-        };
+        }
+
         const userExists = await User.findOne({ email });
 
-        if (userExists) { return res.status(400).json({ message: 'User already exists' }); }
+        if (userExists) {
+            return res.status(400).json({ message: 'User already exists' });
+        }
 
         const token = crypto.randomBytes(20).toString('hex');
-
-        const verificationUrl = `${getBaseUrl()}/api/users/verify/${token}`;
+        const verificationUrl = `${getBaseUrl(req)}/api/users/verify/${token}`;
 
         const user = await User.create({ name, email, password, verificationToken: token });
 
@@ -35,49 +42,45 @@ const creatuser = async (req, res) => {
                 userId: user._id
             });
         } catch (mailError) {
-            // Delete the user so they can try to register again after the fix
             await User.findByIdAndDelete(user._id);
 
-            // THIS IS THE IMPORTANT PART: Send the error back to Postman
             return res.status(500).json({
                 message: 'Error sending email.',
-                errorDetail: mailError.message, // This will tell us if it's "Invalid Login" or "Timeout"
-                errorStack: mailError.code      // This shows the SMTP error code (like 535)
+                errorDetail: mailError.message,
+                errorStack: mailError.code
             });
         }
     } catch (error) {
         res.status(500).json({
             success: false,
-            errorMessage: error.message,
+            errorMessage: error.message
         });
     }
-}
+};
+
 const verifyEmail = async (req, res) => {
     try {
         const { token } = req.params;
-        console.log("Token received from URL:", token); // Debug 1
+        console.log('Token received from URL:', token);
 
-        // 1. Find user with this token
         const user = await User.findOne({ verificationToken: token });
 
         if (!user) {
-            console.log("No user found with that token!"); // Debug 2
+            console.log('No user found with that token!');
             return res.status(400).send('<h1>Invalid or expired token</h1>');
         }
 
-        console.log("User found:", user.name); // Debug 3
+        console.log('User found:', user.name);
 
-        // 2. Update the fields
         user.isVerified = true;
         user.verificationToken = undefined;
 
-        // 3. Save and confirm
         await user.save();
-        console.log("User status after save:", user.isVerified); // Debug 4
+        console.log('User status after save:', user.isVerified);
 
         res.status(200).send('<h1>Email Verified! You can now login.</h1>');
     } catch (error) {
-        console.error("Verification Error:", error);
+        console.error('Verification Error:', error);
         res.status(500).send('Server Error');
     }
 };
@@ -87,11 +90,16 @@ const loginuser = async (req, res) => {
         const { email, password } = req.body;
         const user = await User.findOne({ email });
 
-        if (!user) { return res.status(400).json({ message: 'please register first' }); }
+        if (!user) {
+            return res.status(400).json({ message: 'please register first' });
+        }
 
         const isMatch = await user.matchPassword(password);
 
-        if (!isMatch) { return res.status(400).json({ message: 'Invalid email or password' }); }
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Invalid email or password' });
+        }
+
         if (user.isVerified === false) {
             return res.status(400).json({ message: 'Please verify your email before logging in' });
         }
@@ -99,10 +107,10 @@ const loginuser = async (req, res) => {
         if (user && isMatch) {
             const token = user.generateToken();
             res.cookie('jwt', token, {
-                httpOnly: true, // Prevents JavaScript access (Very Secure)
-                secure: process.env.NODE_ENV === 'production', // Only over HTTPS in production
-                sameSite: 'strict', // Prevents CSRF attacks
-                maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 30 * 24 * 60 * 60 * 1000
             });
 
             res.json({ success: true, name: user.name });
@@ -110,10 +118,10 @@ const loginuser = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            errorName: error.name,        // e.g., "ReferenceError"
-            errorMessage: error.message,  // e.g., "post is not defined"
-            stackTrace: error.stack,      // This shows the exact line number in your file
-            fullError: error              // Some extra details from MongoDB
+            errorName: error.name,
+            errorMessage: error.message,
+            stackTrace: error.stack,
+            fullError: error
         });
     }
 };
@@ -123,66 +131,61 @@ const getuser = async (req, res) => {
         const user = await User.findById(req.user._id).select('-password');
         if (user) {
             res.status(200).json({ user });
-        }
-        else {
+        } else {
             res.status(404).json({ message: 'User not found' });
         }
-
     } catch (error) {
         res.status(500).json({
             success: false,
-            errorName: error.name,        // e.g., "ReferenceError"
-            errorMessage: error.message,  // e.g., "post is not defined"            
-
-            stackTrace: error.stack,      // This shows the exact line number in your file
-            fullError: error              // Some extra details from MongoDB
+            errorName: error.name,
+            errorMessage: error.message,
+            stackTrace: error.stack,
+            fullError: error
         });
     }
 };
+
 const logoutuser = async (req, res) => {
     try {
-        const { email } = req.body;
         res.cookie('jwt', '', {
             httpOnly: true,
-            expires: new Date(0) // Sets expiration to the past to "kill" it
+            expires: new Date(0)
         });
-        res.status(200).json({ message: "Logged out successfully" });
-
+        res.status(200).json({ message: 'Logged out successfully' });
     } catch (error) {
         res.status(500).json({
             success: false,
-            errorName: error.name,        // e.g., "ReferenceError"
-            errorMessage: error.message,  // e.g., "post is not defined"
-            stackTrace: error.stack,      // This shows the exact line number in your file
-            fullError: error              // Some extra details from MongoDB
+            errorName: error.name,
+            errorMessage: error.message,
+            stackTrace: error.stack,
+            fullError: error
         });
     }
-}
+};
 
 const uploadProfilePicture = async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ message: "No file uploaded" });
+            return res.status(400).json({ message: 'No file uploaded' });
         }
         const user = await User.findById(req.user._id);
         if (!user) {
-            return res.status(404).json({ message: "User not found" });
+            return res.status(404).json({ message: 'User not found' });
         }
 
-        user.profilePicture = `/${req.file.path.replace(/\\/g, '/')}`; // Save the file path to the user's profile
+        user.profilePicture = `/${req.file.path.replace(/\\/g, '/')}`;
         await user.save();
-        res.status(200).json({ message: "Profile picture uploaded successfully", profilePicture: req.file.path });
+        res.status(200).json({ message: 'Profile picture uploaded successfully', profilePicture: req.file.path });
     } catch (error) {
         res.status(500).json({
             success: false,
-            errorName: error.name,        // e.g., "ReferenceError"
-            errorMessage: error.message,  // e.g., "post is not defined"
-            stackTrace: error.stack,      // This shows the exact line number in your file
-            fullError: error              // Some extra details from MongoDB
+            errorName: error.name,
+            errorMessage: error.message,
+            stackTrace: error.stack,
+            fullError: error
         });
     }
 };
-
 
 const forgotPassword = async (req, res) => {
     try {
@@ -190,19 +193,16 @@ const forgotPassword = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (!user) {
-            return res.status(404).json({ message: "No user found with that email" });
+            return res.status(404).json({ message: 'No user found with that email' });
         }
 
-        // 1. Create a random Reset Token
         const resetToken = crypto.randomBytes(32).toString('hex');
 
-        // 2. Save the token (hashed) and expiry (15 mins) to DB
         user.forgotPasswordToken = resetToken;
-        user.forgotPasswordTokenExpires = Date.now() + 15 * 60 * 1000; // 15 minutes from now
+        user.forgotPasswordTokenExpires = Date.now() + 15 * 60 * 1000;
         await user.save();
 
-        // 3. Send the Email
-        const resetUrl = `${getBaseUrl()}/api/users/reset_password/${resetToken}`;
+        const resetUrl = `${getBaseUrl(req)}/api/users/reset_password/${resetToken}`;
         const message = `You requested a password reset. Please click: \n\n ${resetUrl}`;
 
         try {
@@ -212,13 +212,13 @@ const forgotPassword = async (req, res) => {
                 text: message,
                 html: `<h1>Reset Password</h1><p>Click <a href="${resetUrl}">here</a> to reset your password. Valid for 15 mins.</p>`
             });
-            res.status(200).json({ message: "Reset link sent to email!" });
+            res.status(200).json({ message: 'Reset link sent to email!' });
         } catch (err) {
             user.forgotPasswordToken = undefined;
             user.forgotPasswordTokenExpires = undefined;
             await user.save();
             return res.status(500).json({
-                message: "Email could not be sent",
+                message: 'Email could not be sent',
                 errorDetail: err.message,
                 errorCode: err.code
             });
@@ -237,19 +237,19 @@ const resetPassword = async (req, res) => {
             forgotPasswordTokenExpires: { $gt: Date.now() }
         });
 
-        if (!user) return res.status(400).json({ message: "Invalid or expired token" });// Check if token is still valid
+        if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
 
-        user.password = newPassword,
-            user.forgotPasswordToken = undefined
+        user.password = newPassword;
+        user.forgotPasswordToken = undefined;
         user.forgotPasswordTokenExpires = undefined;
         await user.save();
 
         res.status(200).json({
-            message: "Password reset successfully",
-        })
-
+            message: 'Password reset successfully'
+        });
     } catch (error) {
         return res.status(500).json({ message: error.message });
     }
-}
+};
+
 export { creatuser, loginuser, logoutuser, getuser, uploadProfilePicture, verifyEmail, forgotPassword, resetPassword };
