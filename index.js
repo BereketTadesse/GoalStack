@@ -21,10 +21,26 @@ if (!fs.existsSync(uploadsDir)) {
 
 const app = express();
 
+const defaultOrigins = ['http://localhost:8080', 'https://goalstack-fl7j.onrender.com'];
+const allowedOrigins = (process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',')
+    : defaultOrigins
+).map((origin) => origin.trim().replace(/\/$/, ''));
+
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({      
-    origin: process.env.CORS_ORIGIN || 'http://localhost:8080/',
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow non-browser requests (no Origin header) like curl/postman/server-to-server.
+        if (!origin) return callback(null, true);
+
+        const normalizedOrigin = origin.replace(/\/$/, '');
+        if (allowedOrigins.includes(normalizedOrigin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
 }));
 app.use('/uploads', express.static(uploadsDir));
