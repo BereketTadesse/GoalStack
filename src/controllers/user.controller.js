@@ -232,7 +232,16 @@ const forgotPassword = async (req, res) => {
 const resetPassword = async (req, res) => {
     try {
         const { token } = req.params;
-        const { newPassword } = req.body;
+        const { newPassword, confirmPassword } = req.body;
+
+        if (!newPassword || !confirmPassword) {
+            return res.status(400).json({ message: 'newPassword and confirmPassword are required' });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ message: 'Passwords do not match' });
+        }
+
         const user = await User.findOne({
             forgotPasswordToken: token,
             forgotPasswordTokenExpires: { $gt: Date.now() }
