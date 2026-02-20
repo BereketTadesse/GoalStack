@@ -30,18 +30,18 @@ const allowedOrigins = (process.env.CORS_ORIGIN
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow non-browser requests (no Origin header) like curl/postman/server-to-server.
-        if (!origin) return callback(null, true);
-
-        const normalizedOrigin = origin.replace(/\/$/, '');
-        if (allowedOrigins.includes(normalizedOrigin)) {
-            return callback(null, true);
+    origin: function (origin, callback) {
+        // This allows localhost:8080, your Render URL, and any other origins you've set
+        if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
+            callback(null, true);
+        } else {
+            console.log("Blocked by CORS. Origin was:", origin); // This helps you debug in Render logs
+            callback(new Error('Not allowed by CORS'));
         }
-
-        return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use('/uploads', express.static(uploadsDir));
 
