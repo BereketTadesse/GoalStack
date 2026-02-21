@@ -13,63 +13,94 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, 'uploads');
 
+const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 const app = express();
 
-const defaultOrigins = ['http://localhost:8080', 'https://goalstack-fl7j.onrender.com'];
-const allowedOrigins = (process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',')
-    : defaultOrigins
-).map((origin) => origin.trim().replace(/\/$/, ''));
+// ✅ Normalize helper (prevents trailing-slash mismatches)
+const normalizeOrigin = (o) => (o ? o.trim().replace(/\/$/, '') : o);
 
+// ✅ Default origins (dev + your Render frontend if you have one)
+const defaultOrigins = [
+  'http://localhost:8080',
+  'https://goalstack-fl7j.onrender.com'
+];
+
+// ✅ Allowed origins from env or defaults
+const allowedOrigins = (process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',')
+  : defaultOrigins
+).map(normalizeOrigin);
+
+// ✅ Core middleware
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({
-    origin: function (origin, callback) {
-        // This allows localhost:8080, your Render URL, and any other origins you've set
-        if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
-            callback(null, true);
-        } else {
-            console.log("Blocked by CORS. Origin was:", origin); // This helps you debug in Render logs
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+
+// ✅ CORS config (important for cookies)
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Requests like curl/postman may have no origin
+    if (!origin) return callback(null, true);
+
+    const normalized = normalizeOrigin(origin);
+
+    // Allow exact matches + any localhost (different ports)
+    const isAllowed =
+      allowedOrigins.includes(normalized) ||
+      normalized.startsWith('http://localhost') ||
+      normalized.startsWith('https://localhost');
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS. Origin was:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+// ✅ Apply CORS + handle preflight
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+// ✅ Static uploads
 app.use('/uploads', express.static(uploadsDir));
 
+// ✅ Health check
 app.get('/health', (req, res) => {
-    res.status(200).json({ ok: true, uptime: process.uptime() });
+  res.status(200).json({ ok: true, uptime: process.uptime() });
 });
 
+// ✅ Routes
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
 
 app.get('/', (req, res) => {
-    res.send('GoalStack API is running...');
+  res.send('GoalStack API is running...');
 });
 
 const PORT = process.env.PORT || 5000;
 
+// ✅ Connect DB (log if fails)
 connectDB().catch((error) => {
-    console.error('Initial DB connection failed:', error.message);
+  console.error('Initial DB connection failed:', error.message);
 });
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
 
 process.on('unhandledRejection', (reason) => {
-    console.error('Unhandled Rejection:', reason);
+  console.error('Unhandled Rejection:', reason);
 });
 
 process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
+  console.error('Uncaught Exception:', error);
 });
