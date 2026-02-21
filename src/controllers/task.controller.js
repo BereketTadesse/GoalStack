@@ -6,20 +6,14 @@ const createtask = async (req, res) => {
 
         // 1. DECLARE the variable here (at the top level of the function)
         // We initialize it as an empty array []
-        let filePaths = [];
-
-        // 2. FILL the variable if files exist
-        if (req.files && req.files.length > 0) {
-            filePaths = req.files.map(file => `/${file.path.replace(/\\/g, '/')}`);
-        }
+        
 
         // 3. USE the variable
         const taskcreated = await Task.create({
             user: req.user._id,
             title,
             description,
-            status: 'pending',
-            attachment: filePaths // Matches the schema field name
+            status: 'pending',// Matches the schema field name
         });
 
         res.status(201).json({ message: 'Task created successfully', taskcreated });

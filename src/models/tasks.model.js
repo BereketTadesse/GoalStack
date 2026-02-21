@@ -23,10 +23,6 @@ import mongoose from 'mongoose';
             type: String,
             enum: ['pending', 'in progress', 'completed'],
             default: 'pending'
-        },
-        attachment:{
-            type: [String],
-            default: []
         }
     }, { timestamps: true });
 
