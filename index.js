@@ -27,7 +27,8 @@ const normalizeOrigin = (o) => (o ? o.trim().replace(/\/$/, '') : o);
 // ✅ Default origins (dev + your Render frontend if you have one)
 const defaultOrigins = [
   'http://localhost:8080',
-  'https://goalstack-fl7j.onrender.com'
+  'https://goalstack-fl7j.onrender.com',
+  'https://welcome-hub-five.vercel.app'
 ];
 
 // ✅ Allowed origins from env or defaults
