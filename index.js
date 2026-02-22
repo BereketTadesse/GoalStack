@@ -69,7 +69,7 @@ const corsOptions = {
 
 // ✅ Apply CORS + handle preflight
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options('/*path', cors(corsOptions));
 
 // ✅ Static uploads
 app.use('/uploads', express.static(uploadsDir));
