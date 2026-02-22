@@ -42,11 +42,39 @@ const creatuser = async (req, res) => {
     const user = await User.create({ name, email, password, verificationToken: token });
 
     try {
+      const emailHtml = `
+        <div style="background-color:#f3f4f6;padding:32px 16px;font-family:Arial,sans-serif;color:#0b2b55;">
+          <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;padding:36px 28px;border:1px solid #e2e8f0;">
+            <div style="text-align:center;">
+              <div style="display:inline-block;border:1px solid #0b2b55;color:#0b2b55;padding:10px 18px;border-radius:8px;font-weight:700;letter-spacing:1px;">
+                GOALSTACK
+              </div>
+              <h1 style="margin:22px 0 8px;font-size:32px;line-height:1.2;color:#0b2b55;">Verify Your Email</h1>
+              <p style="margin:0 0 24px;font-size:16px;color:#4f6c93;">Welcome! Confirm your account to get started.</p>
+            </div>
+            <div style="background:#e9eff7;border:1px solid #c8d4e5;border-radius:10px;padding:18px 16px;margin:0 0 24px;">
+              <p style="margin:0;font-size:15px;color:#1b365d;">
+                Click the button below to verify your email address and activate your account.
+              </p>
+            </div>
+            <div style="text-align:center;margin:0 0 20px;">
+              <a href="${verificationUrl}" style="display:inline-block;background:#0b2b55;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:10px;">
+                Verify Email
+              </a>
+            </div>
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#5d7392;">
+              If the button does not work, copy and paste this link into your browser:<br />
+              <a href="${verificationUrl}" style="color:#0b2b55;word-break:break-all;">${verificationUrl}</a>
+            </p>
+          </div>
+        </div>
+      `;
+
       await sendEmail({
         email: user.email,
         subject: 'Verify your email',
         text: `Please verify your email by clicking on the link: ${verificationUrl}`,
-        html: `<h1>Verify Email</h1><p>Please click <a href="${verificationUrl}">here</a> to verify.</p>`
+        html: emailHtml
       });
 
       res.status(201).json({
@@ -79,7 +107,14 @@ const verifyEmail = async (req, res) => {
 
     if (!user) {
       console.log('No user found with that token!');
-      return res.status(400).send('<h1>Invalid or expired token</h1>');
+      return res.status(400).send(`
+        <div style="background-color:#f3f4f6;min-height:100vh;padding:36px 18px;font-family:Arial,sans-serif;">
+          <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;padding:36px 26px;border:1px solid #e2e8f0;text-align:center;">
+            <h1 style="margin:0 0 12px;color:#0b2b55;">Invalid or Expired Link</h1>
+            <p style="margin:0;color:#4f6c93;">This verification link is no longer valid. Please request a new verification email.</p>
+          </div>
+        </div>
+      `);
     }
 
     console.log('User found:', user.name);
@@ -90,7 +125,20 @@ const verifyEmail = async (req, res) => {
     await user.save();
     console.log('User status after save:', user.isVerified);
 
-    res.status(200).send('<h1>Email Verified! You can now login.</h1>');
+    res.status(200).send(`
+      <div style="background-color:#f3f4f6;min-height:100vh;padding:36px 18px;font-family:Arial,sans-serif;color:#0b2b55;">
+        <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;padding:36px 26px;border:1px solid #e2e8f0;">
+          <div style="text-align:center;">
+            <div style="width:62px;height:62px;border-radius:50%;margin:0 auto 14px;background:#e9eff7;border:1px solid #c8d4e5;line-height:62px;font-size:30px;font-weight:700;color:#0b2b55;">&#10003;</div>
+            <h1 style="margin:0 0 10px;font-size:30px;color:#0b2b55;">Email Verified!</h1>
+            <p style="margin:0 0 24px;font-size:16px;color:#4f6c93;">Your account is now active. You can log in and continue.</p>
+            <a href="${process.env.FRONTEND_URL || '/'}" style="display:inline-block;background:#0b2b55;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:10px;">
+              Go to Login
+            </a>
+          </div>
+        </div>
+      </div>
+    `);
   } catch (error) {
     console.error('Verification Error:', error);
     res.status(500).send('Server Error');
