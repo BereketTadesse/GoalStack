@@ -265,13 +265,41 @@ const forgotPassword = async (req, res) => {
     const frontendBaseUrl = (process.env.FRONTEND_URL || 'http://localhost:8080').replace(/\/$/, '');
     const resetUrl = `${frontendBaseUrl}/reset-password/${resetToken}`;
     const message = `You requested a password reset. Please click: \n\n ${resetUrl}`;
+    const resetEmailHtml = `
+      <div style="background-color:#f3f4f6;padding:32px 16px;font-family:Arial,sans-serif;color:#0b2b55;">
+        <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;padding:36px 28px;border:1px solid #e2e8f0;">
+          <div style="text-align:center;">
+            <div style="display:inline-block;border:1px solid #0b2b55;color:#0b2b55;padding:10px 18px;border-radius:8px;font-weight:700;letter-spacing:1px;">
+              GOALSTACK
+            </div>
+            <h1 style="margin:22px 0 8px;font-size:32px;line-height:1.2;color:#0b2b55;">Reset Your Password</h1>
+            <p style="margin:0 0 24px;font-size:16px;color:#4f6c93;">We received a request to reset your account password.</p>
+          </div>
+          <div style="background:#e9eff7;border:1px solid #c8d4e5;border-radius:10px;padding:18px 16px;margin:0 0 24px;">
+            <p style="margin:0;font-size:15px;color:#1b365d;">
+              Click the button below to create a new password. This link is valid for 15 minutes.
+            </p>
+          </div>
+          <div style="text-align:center;margin:0 0 20px;">
+            <a href="${resetUrl}" style="display:inline-block;background:#0b2b55;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:10px;">
+              Reset Password
+            </a>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#5d7392;">
+            If you did not request this, you can safely ignore this email.<br />
+            If the button does not work, copy and paste this link into your browser:<br />
+            <a href="${resetUrl}" style="color:#0b2b55;word-break:break-all;">${resetUrl}</a>
+          </p>
+        </div>
+      </div>
+    `;
 
     try {
       await sendEmail({
         email: user.email,
         subject: 'Password Reset Request',
         text: message,
-        html: `<h1>Reset Password</h1><p>Click <a href="${resetUrl}">here</a> to reset your password. Valid for 15 mins.</p>`
+        html: resetEmailHtml
       });
       res.status(200).json({ message: 'Reset link sent to email!' });
     } catch (err) {
